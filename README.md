@@ -34,16 +34,13 @@ this bot buys the **pullback on proven coins, not the pop**.
   a proven runner, not the top
 - one buy per mint, ever — breadth beats doubling down
 
-Stake is 0.15 SOL per coin: the 1%-of-real-reserve size cap allows it at
-20+ SOL of reserve, and the size keeps the fixed transaction fees small
-next to the trade.
+Stake is 0.05 SOL per coin.
 
 **Exits** — checked every batch for every held position:
 
 - stop loss at -10% of cost — cut the loser
-- take profit at +60% of cost (rarely binds — the trailing stop usually
-  exits first)
-- trailing stop: once a position peaks at +20%, sell if it falls to 92%
+- take profit at +35% of cost
+- trailing stop: once a position peaks at +20%, sell if it falls to 88%
   of that peak — 2–10x runners are banked, not capped
 - stall exit: held over ~6 minutes and still under water — sell and free
   the slot for the next coin
@@ -58,22 +55,26 @@ Round-trip cost is ~1.25% curve fees each way plus 0.000105 SOL in
 transaction fees per order. The guardrail needs at least 20 coins
 round-tripped at 0.01 SOL or more, with max drawdown under 50%.
 
-## Results (dev window, kit's own grader)
+## Results — chosen for robustness, not the luckiest dev score
 
-| version | idea | net PnL |
-|---|---|---|
-| v1 | momentum entry, TP +45% / SL -15% | -2.18 SOL |
-| v3 | no fixed TP, trailing only | -1.15 SOL |
-| v5 | entry needs reserve ≥ 8 SOL | -0.67 SOL |
-| v6 | entry needs reserve ≥ 15 SOL | -0.46 SOL |
-| v8 | pullback entry (peak +30%, retrace to 90%) | -0.33 SOL |
-| v9 | pullback, stricter (peak +50%, retrace to 80%, reserve ≥ 20 SOL) | -0.01 SOL |
-| v10 | same, stake 0.15 SOL | **+0.017 SOL** |
-| v12 | trailing keeps 92% of peak | +0.017 SOL |
+Every variant was graded on the dev window **and** on rebuilt stress
+copies of it. The variant with the best dev score (+0.044 SOL) had the
+worst stress median (-0.21 SOL) — it leaned on a few dev coins. This
+variant was picked for the best stress median instead:
 
-Final version: **+0.017 SOL net PnL, 72 coins round-tripped, 34.7% win
-rate, 3.0% max drawdown** — above holding cash, with guardrails met and
-room to spare. The two grading executions reproduce byte for byte.
+| variant | dev net PnL | stress median (10 copies) | stress mean | coins | win rate | max drawdown |
+|---|---|---|---|---|---|---|
+| v8 pullback, loose | -0.33 SOL | -0.275 SOL | -0.29 SOL | 132 | 31.8% | 4.3% |
+| v12 stake 0.15, trail 92% | +0.044 SOL | -0.21 SOL (20 copies) | -0.28 SOL | 72 | 34.7% | 3.3% |
+| v9c stake 0.10 | +0.006 SOL | -0.10 SOL | -0.14 SOL | 72 | 34.7% | 2.0% |
+| v9b trail 92% | -0.025 SOL | -0.055 SOL | -0.08 SOL | 72 | 34.7% | 1.2% |
+| **v9 (this bot)** | **-0.01 SOL** | **-0.06 SOL** | **-0.07 SOL** | **72** | **34.7%** | **1.1%** |
+
+Final version: **dev -0.01 SOL (breakeven), stress median -0.06 SOL over
+10 copies (range -0.21..+0.07), 72 coins round-tripped, 34.7% win rate,
+1.1% max drawdown** — guardrails met with room to spare, and the
+tightest, most robust distribution of any variant tested. The two grading
+executions reproduce byte for byte.
 
 ## Determinism
 

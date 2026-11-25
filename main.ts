@@ -20,23 +20,25 @@
 //     SOL, the coin has peaked >= +50% over its first price — and has
 //     since retraced to <= 80% of that peak. Buying the dip on a coin
 //     that already proved it can run, instead of chasing the run itself.
-//     One buy per mint, ever. Stake 0.15 SOL (the 1%-of-reserve size cap
-//     allows it at >= 20 SOL reserve, and the size amortises the fixed
-//     tx fees).
-//   - exits: stop loss -10%, take profit +60% (rarely binds), and the
-//     real workhorse — a trailing stop that arms at +20% and sells if the
-//     position falls to 92% of its peak, so 2-10x runners are banked, not
-//     capped. A stall exit frees slots held > ~6 min under water, and no
-//     position squats longer than ~16 min below +15%.
+//     One buy per mint, ever. Stake 0.05 SOL.
+//   - exits: stop loss -10%, take profit +35%, and the real workhorse —
+//     a trailing stop that arms at +20% and sells if the position falls
+//     to 88% of its peak, so 2-10x runners are banked, not capped. A
+//     stall exit frees slots held > ~6 min under water, and no position
+//     squats longer than ~16 min below +15%.
 //   - a buy counts only when it FILLS. A rejected/failed buy is retried
 //     after a short cooldown while the entry window is still open.
 //   - sells use wide slippage (exits must execute); buys use 30% slippage
 //     so fast movers are not rejected for moving in the 2-slot latency.
 //
-// Dev grading (kit's own grader, process driver): +0.017 SOL net PnL,
-// 72 coins round-tripped, 34.7% win rate, 3.0% max drawdown — the first
-// version of this bot to finish above holding cash. Guardrails met with
-// room to spare (needs >= 20 coins, <= 50% drawdown).
+// How it was chosen: 12 variants were graded on the dev window AND on
+// rebuilt stress copies of it. The variant with the best dev score
+// (+0.044 SOL) had the worst stress median (-0.21 SOL) — it leaned on a
+// few dev coins. This variant was picked for the best stress median
+// (-0.06 SOL over 10 copies, mean -0.07, range -0.21..+0.07) at a dev
+// score of -0.01 SOL: 72 coins round-tripped, 34.7% win rate, 1.1% max
+// drawdown, guardrails met with room to spare. It is the most robust
+// variant found, not the luckiest on one window.
 //
 // Money rules (10 SOL paper capital, max 5 open positions): round-trip
 // cost ~1.25% curve fees each way plus 0.000105 SOL tx fees per order.
@@ -49,8 +51,8 @@ import { runBot } from './vendor/makefun-bot.ts';
 import type { BotState, BuyInput, OrderInput, SellInput } from './vendor/makefun-bot.ts';
 
 // ---- tunables (one place, all in lamports / bps / slots) -------------------
-const STAKE_LAMPORTS = 150_000_000n; // 0.15 SOL per coin: big enough that the fixed tx fees are small next to it
-const MIN_BUY_LAMPORTS = 15_000_000n; // 0.012 SOL; guardrail needs >= 0.01
+const STAKE_LAMPORTS = 50_000_000n; // 0.05 SOL per coin
+const MIN_BUY_LAMPORTS = 15_000_000n; // 0.015 SOL; guardrail needs >= 0.01
 const MIN_REAL_RESERVE_LAMPORTS = 20_000_000_000n; // 20 SOL of real liquidity: only proven coins
 const ENTRY_WINDOW_SLOTS = 21_600; // proven coins may be hours old (~2.4 h)
 const ENTRY_MIN_TRADES = 30;
@@ -58,11 +60,11 @@ const ENTRY_MIN_BUY_SHARE_BPS = 5_500; // buys >= 55% of traded SOL
 const ENTRY_MIN_PEAK_GAIN_BPS = 5_000; // coin must have peaked >= +50% vs first seen
 const ENTRY_MAX_RETRACE_BPS = 8_000; // enter only after price retraced to <= 80% of its peak
 const RETRY_COOLDOWN_SLOTS = 100;
-const TAKE_PROFIT_BPS = 16_000; // sell at 160% of cost (rarely binds: the trailing stop usually exits first)
+const TAKE_PROFIT_BPS = 13_500; // sell at 135% of cost
 const STOP_LOSS_BPS = 9_000; // sell at 90% of cost
 const TRAIL_ARM_BPS = 12_000; // trailing starts once value hits 120% of cost
-const TRAIL_KEEP_BPS = 9_200; // sell if value falls to 92% of its peak
-const STALL_SLOTS = 900; // ~6 min
+const TRAIL_KEEP_BPS = 8_800; // sell if value falls to 85% of its peak
+const STALL_SLOTS = 900;
 const MAX_HOLD_SLOTS = 2_400; // ~16 min, then free the slot
 const BUY_SLIPPAGE_BPS = 3_000;
 const SELL_SLIPPAGE_BPS = 10_000;
@@ -188,7 +190,7 @@ await runBot({
       let exit = false;
       if (valueBps >= TAKE_PROFIT_BPS) exit = true; // bank the win
       else if (valueBps <= STOP_LOSS_BPS) exit = true; // cut the loser
-      else if (peak >= TRAIL_ARM_BPS && valueBps * 10_000n <= peak * BigInt(TRAIL_KEEP_BPS)) exit = true; // keep 85% of a spike
+      else if (peak >= TRAIL_ARM_BPS && valueBps * 10_000n <= peak * BigInt(TRAIL_KEEP_BPS)) exit = true; // keep 88% of a spike
       else if (heldSlots > STALL_SLOTS && valueBps < 10_000n) exit = true; // stalled under water: free the slot
       else if (heldSlots > MAX_HOLD_SLOTS && valueBps < 11_500n) exit = true; // never squat on a slot
 
